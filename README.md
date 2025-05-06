@@ -1,176 +1,229 @@
-## 🧰 Key Docker Commands & Options
+# Softy Pinko Docker Project
 
-Here are the **essential Docker commands and their most common options**, with explanations.
+## Overview
 
-### 🛠️ `docker build`
+This project showcases a basic microservice web architecture using Docker and Docker Compose. The setup includes a front-end static server, an API back-end server using Flask, a reverse proxy with load balancing using Nginx, and finally scaling the back-end servers.
 
-```bash
-docker build -t <image_name>:<tag> <path>
+### Technologies Used
+
+* Docker
+* Docker Compose
+* Nginx
+* Flask (Python)
+
+---
+
+## Project Structure
+
 ```
-
-| Option         | Meaning                                         |
-|----------------|-------------------------------------------------|
-| `-t`           | Tags the image with a name and optional tag     |
-| `<path>`       | Path to the folder containing the Dockerfile    |
-
-**Example:**
-
-```bash
-docker build -t softy-pinko:task1 .
+holbertonschool-softy-pinko-docker/
+├── task0/                # Basic Ubuntu container echoing Hello, World!
+├── task1/                # Flask API container
+├── task2/                # Front-end and back-end split
+├── task3/                # Front-end fetches API data via JavaScript
+├── task4/                # Docker Compose integration
+├── task5/                # Add proxy container
+├── task6/                # Scaled API (horizontal scaling)
 ```
 
 ---
 
-### ▶️ `docker run`
+## Commands Cheat Sheet
 
-```bash
-docker run [OPTIONS] <image>
-```
+### General Docker Commands
 
-| Option             | Description                                                                 |
-|--------------------|-----------------------------------------------------------------------------|
-| `--name`           | Assigns a custom name to the container                                      |
-| `--rm`             | Automatically removes the container when it exits                           |
-| `-it`              | `-i` = interactive, `-t` = allocate terminal (lets you see logs/output)      |
-| `-p host:container`| Maps a container port to the host machine                                   |
+```sh
+# Build Docker image
+docker build -t <image-name> .
 
-**Example:**
+# Run a Docker container
+# -p maps host:container port
+# --rm removes the container after exit
+# -it for interactive mode
+docker run -p 5252:5252 -it --rm --name <container-name> <image-name>
 
-```bash
-docker run -p 5252:5252 -it --rm --name softy-pinko-task1 softy-pinko:task1
-```
+# Stop all running containers
+docker stop $(docker ps -q)
 
----
-
-### 📋 `docker images`
-
-List all locally stored Docker images:
-
-```bash
-docker images
-```
-
----
-
-### 📋 `docker ps -a`
-
-List all containers (including stopped ones):
-
-```bash
-docker ps -a
-```
-
----
-
-### 🧹 Cleanup Commands
-
-Remove all stopped containers:
-
-```bash
+# Remove all stopped containers
 docker container prune
 ```
 
-Remove a specific image:
+### Docker Compose
 
-```bash
-docker rmi <image_name>
+```sh
+# Build all services
+docker-compose build
+
+# Run all services (specified in docker-compose.yml)
+docker-compose up
+
+# Run with scaling
+docker-compose up --scale back-end=2
+
+# Shut down all services
+docker-compose down
 ```
 
 ---
 
-## 🔧 Example Tasks
+## Tasks Summary
 
-### ✅ Task 0 – Basic Hello World Image
+### Task 0 - Basic Dockerfile
 
-A simple image that echoes a message.
-
-**Dockerfile (task0/Dockerfile):**
+* Base image: `ubuntu:latest`
+* Commands:
 
 ```Dockerfile
-FROM ubuntu:latest
 RUN apt-get update && apt-get upgrade -y
 CMD echo "Hello, World!"
 ```
 
-**Build and Run:**
+### Task 1 - Back-End API
 
-```bash
-cd task0
-docker build -t softy-pinko:task0 .
-docker run -it --rm --name softy-pinko-task0 softy-pinko:task0
+* Install Python3, pip3, Flask
+* Flask app at `/api/hello`, runs on port 5252
+* Add CORS support if needed:
+
+```Dockerfile
+RUN pip3 install flask flask-cors
 ```
 
-Expected output:
-```
-Hello, World!
-```
-
----
-
-### ✅ Task 1 – Flask API in a Container
-
-A basic API using Flask, listening on port 5252.
-
-**api.py (task1/api.py):**
+* `api.py`:
 
 ```python
 from flask import Flask
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/api/hello')
-def hello_world():
+def hello():
     return 'Hello, World!'
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5252)
 ```
 
-**Dockerfile (task1/Dockerfile):**
+### Task 2 - Front-End
 
-```Dockerfile
-FROM ubuntu:latest
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y python3 python3-pip
-RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED
-RUN pip3 install flask
-WORKDIR /app
-COPY ./api.py /app/api.py
-CMD ["python3", "api.py"]
+* Use `nginx:latest` as base image
+* Clone front-end repo inside `/var/www/html/softy-pinko-front-end`
+* Nginx config example (`softy-pinko-front-end.conf`):
+
+```nginx
+server {
+    listen 9000;
+    server_name softy-pinko-front-end;
+    location / {
+        root /var/www/html/softy-pinko-front-end;
+        index index.html;
+    }
+}
 ```
 
-**Build and Run:**
+### Task 3 - Connecting Front-End and Back-End
 
-```bash
-cd task1
-docker build -t softy-pinko:task1 .
-docker run -p 5252:5252 -it --rm --name softy-pinko-task1 softy-pinko:task1
+* Add to `index.html`:
+
+```html
+<h1 id="dynamic-content"></h1>
+<script>
+$(function() {
+    $.ajax({
+        type: "GET",
+        url: "http://localhost:5252/api/hello",
+        success: function(data) {
+            $('#dynamic-content').text(data);
+        }
+    });
+});
+</script>
 ```
 
-**Test in browser or curl:**
+### Task 4 - Docker Compose
 
-```bash
-curl http://localhost:5252/api/hello
+* Example `docker-compose.yml`:
+
+```yaml
+version: '3'
+services:
+  back-end:
+    build:
+      context: ./back-end
+    ports:
+      - "5252:5252"
+
+  front-end:
+    build:
+      context: ./front-end
+    ports:
+      - "9000:9000"
 ```
 
-Expected:
+### Task 5 - Proxy Server
+
+* Use Nginx as proxy container
+* `proxy.conf`:
+
+```nginx
+upstream backend_servers {
+    server back-end:5252;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://front-end:9000;
+    }
+
+    location /api {
+        proxy_pass http://backend_servers;
+    }
+}
 ```
-Hello, World!
+
+* Add to `docker-compose.yml`:
+
+```yaml
+  proxy:
+    build:
+      context: ./proxy
+    ports:
+      - "80:80"
+    depends_on:
+      - front-end
+      - back-end
 ```
 
----
+* Update JavaScript in `index.html`:
 
-## 🧠 Summary
+```js
+<script>
+$(function() {
+    $.ajax({
+        type: "GET",
+        url: "/api/hello",
+        success: function (data) {
+            $('#dynamic-content').text(data);
+        }
+    });
+});
+</script>
+```
 
-| Command                      | Purpose                                  |
-|-----------------------------|------------------------------------------|
-| `docker build`              | Create a Docker image from a Dockerfile  |
-| `docker run`                | Start a container from an image          |
-| `-p <host>:<container>`     | Expose a container’s port to the host    |
-| `--rm`                      | Automatically delete container on exit   |
-| `--name <name>`             | Assign a custom name to the container    |
-| `-it`                       | Interact with the container via terminal |
-| `docker images`             | List all images on the system            |
-| `docker ps -a`              | List all containers (even stopped ones)  |
-| `docker container prune`    | Remove all stopped containers            |
+### Task 6 - Scale API Servers
+
+* In `task6`, run:
+
+```sh
+docker-compose up --scale back-end=2 --build
+```
+
+* Create a file `2-api-servers.txt` with:
+
+```
+docker-compose up --scale back-end=2
+```
